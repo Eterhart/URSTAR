@@ -182,19 +182,21 @@ export function parseUrsaForm(html: string | null | undefined): UrsaForm | null 
       const options: UrsaFormControlOption[] = [];
       let selectedValue = '';
 
-      const optionRegex = /<option\b([^>]*)>([\s\S]*?)<\/option>/gi;
-      let optMatch: RegExpExecArray | null;
+      // Extract <option> elements (supports both closed and unclosed ColdFusion <option> tags)
+      const optionChunks = selectInner.split(/<option\b/i).slice(1);
+      for (const chunk of optionChunks) {
+        const match = chunk.match(/^([^>]*)>([\s\S]*?)(?:<\/option>|(?=<option\b)|$)/i);
+        if (match) {
+          const optAttrs = match[1];
+          const optText = cleanHtmlText(match[2].replace(/<\/?[a-z][^>]*>/gi, ' '));
+          const valMatch = optAttrs.match(/value=["']?([^"'>\s]*)/i);
+          const optValue = valMatch ? valMatch[1] : optText;
 
-      while ((optMatch = optionRegex.exec(selectInner)) !== null) {
-        const optAttrs = optMatch[1];
-        const optText = cleanHtmlText(optMatch[2]);
-        const valMatch = optAttrs.match(/value=["']?([^"'>\s]*)/i);
-        const optValue = valMatch ? valMatch[1] : optText;
+          options.push({ value: optValue, text: optText });
 
-        options.push({ value: optValue, text: optText });
-
-        if (/selected/i.test(optAttrs) || (!selectedValue && options.length === 1)) {
-          selectedValue = optValue;
+          if (/selected/i.test(optAttrs) || (!selectedValue && options.length === 1)) {
+            selectedValue = optValue;
+          }
         }
       }
 
@@ -263,10 +265,11 @@ export function parseSectionsHtml(
 
   const tableMatches = sanitizedHtml.match(/<table\b[^>]*>([\s\S]*?)<\/table>/gi) || [];
 
-  // Find all candidate section tables
+  // Find all candidate section tables (supports both seat1.cfm and seat2.cfm structures)
   const targetTables = tableMatches.filter((table) =>
-    /Seat\(s\)|ที่นั่ง/i.test(table) &&
-    /Status|สถานะ|Section|ตอนเรียน|กลุ่ม/i.test(table)
+    (/Seat\(s\)|ที่นั่ง|Total|Taken|Left/i.test(table) &&
+     /Status|สถานะ|Section|ตอนเรียน|กลุ่ม|Type|Day|Time/i.test(table)) ||
+    (/\bSection\b/i.test(table) && /\b(?:Day|Time|Room|Status)\b/i.test(table))
   );
 
   if (targetTables.length === 0 && tableMatches.length > 0) {

@@ -77,9 +77,9 @@ export async function POST(request: NextRequest) {
         const code = rawCode.trim();
         if (!code) continue;
 
-        const rawYear = String(academicYear || fields.acdyr || fields.year || '2569');
+        const rawYear = String(academicYear || fields.acdyr || fields.year || '69');
         const yearCode = rawYear.length === 4 ? rawYear.slice(-2) : rawYear;
-        const termCode = String(semester || fields.semcode || fields.sem || fields.term || '1');
+        const termCode = String(semester || fields.semcode || fields.sem || fields.term || '2');
 
         const queryPayload = new URLSearchParams({
           option1: option1 || fields.option1 || '1',
@@ -118,7 +118,61 @@ export async function POST(request: NextRequest) {
         if (response.ok) {
           const html = await decodeUrsaResponse(response);
           htmlSnippets.push(html);
-          const parsedCourses = parseSectionsHtml(html, code);
+          let parsedCourses = parseSectionsHtml(html, code);
+
+          // Retry A: If no sections found, try with spaced code (e.g. "CS 423" instead of "CS423")
+          if (parsedCourses.length === 0) {
+            const spacedCode = code.replace(/([A-Za-z]+)(\d+)/i, '$1 $2');
+            if (spacedCode !== code) {
+              const altPayload = new URLSearchParams({
+                option1: option1 || fields.option1 || '1',
+                acdyr: yearCode,
+                semcode: termCode,
+                coursecode: spacedCode,
+                section: '',
+                grdqry_op: '     GO     ',
+              });
+              const altResp = await fetchUrsa(`${URSA_BASE_URL}/seat/seat2.cfm`, session.cookie, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/x-www-form-urlencoded',
+                  Referer: `${URSA_BASE_URL}/seat/seat1.cfm`,
+                },
+                body: altPayload.toString(),
+              });
+              if (altResp.ok) {
+                const altHtml = await decodeUrsaResponse(altResp);
+                const altParsed = parseSectionsHtml(altHtml, code);
+                if (altParsed.length > 0) {
+                  parsedCourses = altParsed;
+                }
+              }
+            }
+          }
+
+          // Retry B: Fallback to seat1.cfm
+          if (parsedCourses.length === 0) {
+            const queryParams = new URLSearchParams({
+              acdyr: yearCode,
+              sem: termCode,
+              course_code: code,
+              option1: option1 || '1',
+            });
+            const seat1Resp = await fetchUrsa(`${URSA_BASE_URL}/seat/seat1.cfm?${queryParams.toString()}`, session.cookie, {
+              method: 'GET',
+              headers: {
+                Referer: `${URSA_BASE_URL}/seat/seat1.cfm`,
+              },
+            });
+            if (seat1Resp.ok) {
+              const seat1Html = await decodeUrsaResponse(seat1Resp);
+              const seat1Parsed = parseSectionsHtml(seat1Html, code);
+              if (seat1Parsed.length > 0) {
+                parsedCourses = seat1Parsed;
+              }
+            }
+          }
+
           allCourses.push(...parsedCourses);
         }
       }

@@ -23,8 +23,8 @@ export const CourseExplorer: React.FC<CourseExplorerProps> = ({
   isLoading = false,
   formControls = [],
 }) => {
-  const [academicYear, setAcademicYear] = useState('2569');
-  const [semester, setSemester] = useState('1');
+  const [academicYear, setAcademicYear] = useState('69');
+  const [semester, setSemester] = useState('2');
   const [localInput, setLocalInput] = useState(searchQuery);
   const [searchStatus, setSearchStatus] = useState<'idle' | 'loading' | 'success' | 'not_found'>('idle');
   const [missingCourses, setMissingCourses] = useState<string[]>([]);
@@ -32,6 +32,27 @@ export const CourseExplorer: React.FC<CourseExplorerProps> = ({
   // Discover Year & Semester options from formControls if available
   const yearControl = formControls.find((c) => /year|acdyr/i.test(c.name));
   const semControl = formControls.find((c) => /sem|term/i.test(c.name));
+
+  // Sync with active options from live URSA formControls
+  useEffect(() => {
+    if (yearControl?.value) {
+      setAcademicYear(yearControl.value);
+    } else if (yearControl?.options && yearControl.options.length > 0) {
+      if (!yearControl.options.some((o) => o.value === academicYear)) {
+        setAcademicYear(yearControl.options[0].value);
+      }
+    }
+  }, [yearControl, academicYear]);
+
+  useEffect(() => {
+    if (semControl?.value) {
+      setSemester(semControl.value);
+    } else if (semControl?.options && semControl.options.length > 0) {
+      if (!semControl.options.some((o) => o.value === semester)) {
+        setSemester(semControl.options[0].value);
+      }
+    }
+  }, [semControl, semester]);
 
   useEffect(() => {
     setLocalInput(searchQuery);
@@ -132,9 +153,9 @@ export const CourseExplorer: React.FC<CourseExplorerProps> = ({
                 ))
               ) : (
                 <>
-                  <option value="2569">2026 (B.E. 2569)</option>
-                  <option value="2568">2025 (B.E. 2568)</option>
-                  <option value="2567">2024 (B.E. 2567)</option>
+                  <option value="69">2026 (B.E. 2569)</option>
+                  <option value="68">2025 (B.E. 2568)</option>
+                  <option value="67">2024 (B.E. 2567)</option>
                 </>
               )}
             </select>
