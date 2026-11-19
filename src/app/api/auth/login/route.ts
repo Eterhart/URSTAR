@@ -3,6 +3,8 @@ import { loginUrsa } from '@/lib/ursa/client';
 import { createSession, SESSION_COOKIE_NAME } from '@/lib/ursa/sessionStore';
 import { UrsaLoginCredentials } from '@/types/ursa';
 
+export const maxDuration = 30;
+
 export async function POST(request: NextRequest) {
   try {
     let body: Partial<UrsaLoginCredentials> = {};
